@@ -9,13 +9,13 @@ import random
 # ==========================================
 def fetch_all_giftishow_products_safely():
     # 기프티쇼 비즈의 진짜 목록 API 주소
-    url = "https://biz.giftishow.com/fo_api/ggoods/list" 
+    url = "https://biz.giftishow.com/fo_api/ggoods/detail" 
     
     # 봇 차단 방지를 위한 브라우저 위장 헤더
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
         "Origin": "https://biz.giftishow.com",
-        "Referer": "https://biz.giftishow.com/ggoods/list",
+        "Referer": "https://biz.giftishow.com/ggoods/detail",
         "Accept": "application/json, text/plain, */*"
     }
     
