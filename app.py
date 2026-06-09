@@ -5,9 +5,9 @@ import time
 import random
 
 # ==========================================
-# 1. 특정 브랜드를 타겟팅하는 스마트 크롤러 엔진
+# 1. 기프티쇼 비즈 '전체 상품' 크롤러 엔진
 # ==========================================
-def fetch_brand_products_safely(brand_code, brand_name):
+def fetch_all_products_safely():
     url = "https://biz.giftishow.com/fo_api/ggoods/list"
     
     headers = {
@@ -24,13 +24,11 @@ def fetch_brand_products_safely(brand_code, brand_name):
     status_box = st.empty()
     
     while True:
-        # 🔥 마케터님이 찾아낸 브랜드 타겟팅 규격 적용!
+        # 🔥 특정 카테고리나 브랜드 필터를 모두 빼고 순수하게 '전체'를 요청합니다.
         payload = {
             "start": str(start_index),
             "size": str(page_size),
-            "lineUp": "popular",
-            "brandCode": [brand_code],
-            "brandName": [brand_name]
+            "lineUp": "popular"
         }
         
         try:
@@ -71,7 +69,7 @@ def fetch_brand_products_safely(brand_code, brand_name):
                 
                 current_count = len(all_products)
                 sleep_time = 3.0 + random.uniform(0, 1.2)
-                status_box.info(f"🔄 '{brand_name}' 상품 {current_count}개 수집 완료... 안전 대기 중 ({sleep_time:.1f}초) ⏳")
+                status_box.info(f"🔄 전체 상품 {current_count}개 수집 중... 안전 대기 중 ({sleep_time:.1f}초) ⏳")
                 
                 start_index += page_size
                 time.sleep(sleep_time)
@@ -87,45 +85,71 @@ def fetch_brand_products_safely(brand_code, brand_name):
     status_box.empty()
     return pd.DataFrame(all_products)
 
-# ==========================================
-# 2. 마케터를 위한 브랜드 필터링 웹 UI
-# ==========================================
-st.set_page_config(page_title="브랜드별 URL 생성기", layout="wide", page_icon="🎯")
 
-st.title("🎯 기프티쇼 비즈 브랜드별 타겟팅 URL 생성기")
-st.write("원하는 브랜드를 선택하면 해당 브랜드의 상품만 수집하여 쇼핑광고 피드를 생성합니다.")
+# ==========================================
+# 2. 스마트 필터링 대시보드 UI
+# ==========================================
+st.set_page_config(page_title="통합 브랜드 URL 생성기", layout="wide", page_icon="🎯")
+
+st.title("🎯 기프티쇼 비즈 통합 브랜드 타겟팅 URL 생성기")
+st.write("전체 상품을 한 번 긁어온 후, 원하는 브랜드를 자유롭게 선택해 0.1초 만에 광고 피드를 뽑아냅니다.")
 st.write("---")
 
-# 💡 임시로 세팅해 둔 브랜드 사전 (추후 API로 100% 자동화 예정)
-# 마케터님이 알고 계신 코드를 여기에 계속 추가하실 수 있습니다.
-KNOWN_BRANDS = {
-    "스타벅스": "BR00007"
-}
+# 🔥 핵심 마법: 데이터를 날아가지 않게 스트림릿 '메모리(Session State)'에 꽉 묶어둡니다!
+if 'all_data' not in st.session_state:
+    st.session_state['all_data'] = pd.DataFrame()
 
-# 사용자 UI 창
-selected_brand_name = st.selectbox(
-    "1. 수집할 브랜드를 선택하세요", 
-    options=list(KNOWN_BRANDS.keys())
-)
-selected_brand_code = KNOWN_BRANDS[selected_brand_name]
-
-st.info(f"선택된 브랜드: **{selected_brand_name}** (코드: {selected_brand_code})")
-
-# 실행 버튼
-if st.button(f"🚀 '{selected_brand_name}' 상품 크롤링 시작", type="primary"):
-    
-    df_result = fetch_brand_products_safely(selected_brand_code, selected_brand_name)
-    
-    if not df_result.empty:
-        st.success(f"🎉 성공적으로 {selected_brand_name} 상품 수집을 완료했습니다! (총 {len(df_result)}건)")
-        st.dataframe(df_result, use_container_width=True)
+# ------------------------------------------
+# [1단계] 전체 데이터 수집 영역
+# ------------------------------------------
+if st.session_state['all_data'].empty:
+    st.warning("⚠️ 아직 메모리에 수집된 데이터가 없습니다. 먼저 전체 상품을 불러오세요.")
+    if st.button("🚀 1단계: 전체 상품 수집 및 브랜드 추출 시작", type="primary"):
+        df_result = fetch_all_products_safely()
         
-        csv = df_result.to_csv(index=False).encode('utf-8-sig')
+        if not df_result.empty:
+            # 수집된 전체 데이터를 메모리에 저장!
+            st.session_state['all_data'] = df_result
+            st.success(f"🎉 성공적으로 전체 상품 (총 {len(df_result)}건) 수집을 완료했습니다!")
+            # 화면 새로고침하여 2단계를 띄움
+            st.rerun() 
+else:
+    st.success(f"✅ 현재 메모리에 전체 상품 ({len(st.session_state['all_data'])}건)이 안전하게 저장되어 있습니다.")
+    if st.button("🔄 최신 데이터로 다시 수집하기"):
+        st.session_state['all_data'] = pd.DataFrame()
+        st.rerun()
+
+st.write("---")
+
+# ------------------------------------------
+# [2단계] 브랜드 추출 및 필터링 영역
+# ------------------------------------------
+# 데이터가 메모리에 있을 때만 아래 메뉴를 보여줍니다.
+if not st.session_state['all_data'].empty:
+    st.subheader("2단계: 원하는 브랜드 필터링 및 다운로드")
+    
+    # 1. 전체 데이터에서 고유한 브랜드 이름만 쫙 뽑아내어 리스트로 만듭니다.
+    df = st.session_state['all_data']
+    brand_list = df['브랜드'].dropna().unique().tolist()
+    brand_list.sort() # 찾기 쉽게 가나다순으로 정렬
+    
+    # 2. 뽑아낸 브랜드 리스트를 드롭다운(선택창)에 뿌려줍니다.
+    selected_brand = st.selectbox("👇 광고를 세팅할 브랜드를 선택하세요", options=brand_list)
+    
+    # 3. 마케터님이 브랜드를 선택하면, 전체 데이터에서 해당 브랜드만 싹둑 잘라냅니다. (서버 통신 안 함!)
+    filtered_df = df[df['브랜드'] == selected_brand]
+    
+    st.info(f"✨ 선택된 브랜드: **{selected_brand}** (해당 브랜드 상품 총 {len(filtered_df)}건)")
+    
+    # 4. 화면에 표출
+    st.dataframe(filtered_df, use_container_width=True)
+    
+    # 5. 다운로드 버튼 제공
+    if not filtered_df.empty:
+        csv = filtered_df.to_csv(index=False).encode('utf-8-sig')
         st.download_button(
-            label="📥 쇼핑광고용 엑셀(CSV) 다운로드",
+            label=f"📥 '{selected_brand}' 전용 쇼핑광고 엑셀 다운로드",
             data=csv,
-            file_name=f"giftishow_{selected_brand_name}_feed_{time.strftime('%Y%m%d')}.csv",
+            file_name=f"giftishow_{selected_brand}_feed_{time.strftime('%Y%m%d')}.csv",
             mime="text/csv"
         )
-    else:
-        st.error("데이터를 수집하지 못했습니다.")
