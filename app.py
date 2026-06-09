@@ -5,7 +5,7 @@ import time
 import random
 
 # ==========================================
-# 1. 기프티쇼 비즈 '전체 상품' 크롤러 엔진
+# 1. 마케터님의 통찰로 1,000건 이상 전수 수집하는 엔진
 # ==========================================
 def fetch_all_products_safely():
     url = "https://biz.giftishow.com/fo_api/ggoods/list"
@@ -18,15 +18,15 @@ def fetch_all_products_safely():
     }
     
     all_products = []
-    start_index = 1
-    page_size = 200  
+    current_page = 1  # 🔥 start 파라미터가 '페이지 번호'이므로 1페이지부터 시작!
+    page_size = 200   # 한 번에 가져올 뭉텅이 크기
     
     status_box = st.empty()
     
     while True:
-        # 🔥 특정 카테고리나 브랜드 필터를 모두 빼고 순수하게 '전체'를 요청합니다.
+        # payload의 start에 현재 페이지 번호를 문자열로 주입
         payload = {
-            "start": str(start_index),
+            "start": str(current_page),
             "size": str(page_size),
             "lineUp": "popular"
         }
@@ -48,6 +48,7 @@ def fetch_all_products_safely():
                 else:
                     items = result_list_data
                 
+                # ❗ 더 이상 가져올 상품 데이터가 없으면 무한루프 탈출
                 if not items:
                     break
                     
@@ -69,9 +70,10 @@ def fetch_all_products_safely():
                 
                 current_count = len(all_products)
                 sleep_time = 3.0 + random.uniform(0, 1.2)
-                status_box.info(f"🔄 전체 상품 {current_count}개 수집 중... 안전 대기 중 ({sleep_time:.1f}초) ⏳")
+                status_box.info(f"🔄 현재 {current_page}페이지 수집 완료 (총 {current_count}개 상품)... 안전 대기 중 ({sleep_time:.1f}초) ⏳")
                 
-                start_index += page_size
+                # 🔥 [핵심 수정] 200을 더하는 게 아니라, 다음 페이지인 '2페이지', '3페이지'로 1씩 증가!
+                current_page += 1
                 time.sleep(sleep_time)
                 
             else:
@@ -95,7 +97,6 @@ st.title("🎯 기프티쇼 비즈 통합 브랜드 타겟팅 URL 생성기")
 st.write("전체 상품을 한 번 긁어온 후, 원하는 브랜드를 자유롭게 선택해 0.1초 만에 광고 피드를 뽑아냅니다.")
 st.write("---")
 
-# 🔥 핵심 마법: 데이터를 날아가지 않게 스트림릿 '메모리(Session State)'에 꽉 묶어둡니다!
 if 'all_data' not in st.session_state:
     st.session_state['all_data'] = pd.DataFrame()
 
@@ -108,10 +109,8 @@ if st.session_state['all_data'].empty:
         df_result = fetch_all_products_safely()
         
         if not df_result.empty:
-            # 수집된 전체 데이터를 메모리에 저장!
             st.session_state['all_data'] = df_result
             st.success(f"🎉 성공적으로 전체 상품 (총 {len(df_result)}건) 수집을 완료했습니다!")
-            # 화면 새로고침하여 2단계를 띄움
             st.rerun() 
 else:
     st.success(f"✅ 현재 메모리에 전체 상품 ({len(st.session_state['all_data'])}건)이 안전하게 저장되어 있습니다.")
@@ -124,27 +123,21 @@ st.write("---")
 # ------------------------------------------
 # [2단계] 브랜드 추출 및 필터링 영역
 # ------------------------------------------
-# 데이터가 메모리에 있을 때만 아래 메뉴를 보여줍니다.
 if not st.session_state['all_data'].empty:
     st.subheader("2단계: 원하는 브랜드 필터링 및 다운로드")
     
-    # 1. 전체 데이터에서 고유한 브랜드 이름만 쫙 뽑아내어 리스트로 만듭니다.
     df = st.session_state['all_data']
     brand_list = df['브랜드'].dropna().unique().tolist()
-    brand_list.sort() # 찾기 쉽게 가나다순으로 정렬
+    brand_list.sort() 
     
-    # 2. 뽑아낸 브랜드 리스트를 드롭다운(선택창)에 뿌려줍니다.
     selected_brand = st.selectbox("👇 광고를 세팅할 브랜드를 선택하세요", options=brand_list)
     
-    # 3. 마케터님이 브랜드를 선택하면, 전체 데이터에서 해당 브랜드만 싹둑 잘라냅니다. (서버 통신 안 함!)
     filtered_df = df[df['브랜드'] == selected_brand]
     
     st.info(f"✨ 선택된 브랜드: **{selected_brand}** (해당 브랜드 상품 총 {len(filtered_df)}건)")
     
-    # 4. 화면에 표출
     st.dataframe(filtered_df, use_container_width=True)
     
-    # 5. 다운로드 버튼 제공
     if not filtered_df.empty:
         csv = filtered_df.to_csv(index=False).encode('utf-8-sig')
         st.download_button(
