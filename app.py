@@ -85,8 +85,10 @@ def fetch_all_giftishow_products_safely():
                 start_index += page_size
                 time.sleep(sleep_time)
                 
+            # (기존 코드)
             else:
                 st.error(f"❌ 서버 에러 메시지: {json_data.get('message')}")
+                st.json(json_data)  # 🔥 이 줄을 추가! 서버가 보낸 원본 데이터를 통째로 화면에 출력합니다.
                 break
                 
         except Exception as e:
