@@ -5,10 +5,10 @@ import time
 import random
 
 # ==========================================
-# 1. 마케터님의 아이디어로 완성된 안전한 크롤러 엔진
+# 1. 마케터님의 아이디어와 피드백으로 완성된 크롤러 엔진
 # ==========================================
 def fetch_all_giftishow_products_safely():
-    # 기프티쇼 비즈의 진짜 목록 API 주소
+    # 마케터님이 짚어내신 진짜 ggoods/detail API 주소
     url = "https://biz.giftishow.com/fo_api/ggoods/detail" 
     
     # 봇 차단 방지를 위한 브라우저 위장 헤더
@@ -23,11 +23,11 @@ def fetch_all_giftishow_products_safely():
     start_index = 1
     page_size = 100  # 서버 부담을 최소화하는 최적의 뭉텅이 크기
     
-    # Streamlit 화면에 실시간 진행 상황을 보여주기 위한 앵커
+    # Streamlit 화면에 실시간 진행 상황을 보여주기 위한 알림창
     status_box = st.empty()
-    progress_bar = st.progress(0)
     
     while True:
+        # 마케터님의 아이디어: start와 size로 페이징 제어
         payload = {
             "start": start_index,
             "size": page_size
@@ -43,14 +43,16 @@ def fetch_all_giftishow_products_safely():
                 break
                 
             data = response.json()
-            goods_list = data.get("result", {}).get("goodsList", [])
+            
+            # 마케터님이 찾아내신 진짜 구조 명칭인 'goodsDetail'로 정확하게 타겟팅!
+            goods_detail_list = data.get("result", {}).get("goodsDetail", [])
             
             # ❗ 더 이상 가져올 상품 데이터가 없으면 무한루프 탈출!
-            if not goods_list:
+            if not goods_detail_list:
                 break
                 
             # 뭉텅이 데이터 가공 및 쇼핑광고 URL 결합
-            for p in goods_list:
+            for p in goods_detail_list:
                 base_url = f"https://biz.giftishow.com/ggoods/detail/?goodsNo={p.get('goodsNo')}"
                 
                 # 🔥 네이버 쇼핑 광고 피드용 추적 파라미터 자동 완성
@@ -69,8 +71,7 @@ def fetch_all_giftishow_products_safely():
                 
             current_count = len(all_products)
             
-            # 🔥 [핵심 요구사항] 사람처럼 보이기 위한 '3초+알파' 랜덤 딜레이 적용!
-            # 기계처럼 정확히 3초면 걸릴 수 있으니 3초~4.5초 사이로 유연하게 쉽니다.
+            # 마케터님의 리스크 관리 요구사항: 3초+알파 랜덤 딜레이 적용
             sleep_time = 3.0 + random.uniform(0, 1.5)
             status_box.info(f"🔄 현재 {current_count}개 상품 수집 완료... 사이트 보호를 위해 잠시 숨 고르는 중 ({sleep_time:.1f}초 대기) ⏳")
             
@@ -84,7 +85,6 @@ def fetch_all_giftishow_products_safely():
             
     # 완료 후 안내창 비우기
     status_box.empty()
-    progress_bar.empty()
     
     return pd.DataFrame(all_products)
 
@@ -98,7 +98,7 @@ st.subheader("마케터 전용 대시보드")
 st.write("---")
 st.write("👉 **[시작]** 버튼을 누르면 기프티쇼 비즈의 전체 상품을 안전하게 수집한 뒤, 네이버 쇼핑 추적 파라미터가 결합된 광고 피드용 엑셀을 생성합니다.")
 
-# 깔끔한 경고 문구 추가 (마케터님의 리스크 관리 마인드 반영)
+# 마케터님의 리스크 관리 마인드가 반영된 안내문구
 st.warning("⚠️ 본 도구는 사이트 장애 방지를 위해 100건당 약 3초의 안전 딜레이를 두고 작동하므로, 전체 수집 완료까지 다소 시간이 소요될 수 있습니다.")
 
 # 실행 버튼
